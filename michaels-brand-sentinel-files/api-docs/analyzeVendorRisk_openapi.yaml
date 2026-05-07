@@ -1,0 +1,99 @@
+openapi: 3.0.0
+info:
+  title: Michaels Vendor Risk Analysis API
+  description: Statistical anomaly detection on supplier compliance data. Returns risk reports for human review.
+  version: 1.0.0
+servers:
+  - url: https://us-central1-ieco-495312.cloudfunctions.net
+paths:
+  /detect-vendor-risk:
+    post:
+      operationId: analyzeVendorRisk
+      summary: Analyze vendor compliance and quality data for anomalies
+      description: |
+        Returns a structured risk report for one vendor, all vendors in a region,
+        or every vendor in the supply chain. Computes three flag types:
+        defect_spike (3-sigma test on defect rate), on_time_erosion (10pp drop
+        on on-time delivery), and compliance_breach (any non-compliant week
+        in the recent window). Risk levels are HIGH, MEDIUM, or NONE.
+        All recommendations are framed as suggestions for human review,
+        not autonomous actions.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                region:
+                  type: string
+                  description: Geographic region to scan, e.g. "South Asia", "East Asia", "Latin America", "Europe". Use "all" or omit to scan every region.
+                vendor_id:
+                  type: string
+                  description: Specific vendor identifier, e.g. SUZHOU-TX or MUMBAI-CR.
+                lookback_weeks:
+                  type: integer
+                  description: How many weeks of history to analyze. Defaults to 12. Capped between 4 and 52.
+      responses:
+        '200':
+          description: Risk analysis report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found:
+                    type: boolean
+                  summary:
+                    type: object
+                    properties:
+                      high_risk_count:
+                        type: integer
+                      medium_risk_count:
+                        type: integer
+                      vendors_analyzed:
+                        type: integer
+                  vendors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        vendor_id:
+                          type: string
+                        vendor_name:
+                          type: string
+                        region:
+                          type: string
+                        product_category:
+                          type: string
+                        weeks_analyzed:
+                          type: integer
+                        risk_level:
+                          type: string
+                          enum: [HIGH, MEDIUM, NONE]
+                        flags:
+                          type: array
+                          items:
+                            type: string
+                            enum: [defect_spike, on_time_erosion, compliance_breach]
+                        explanation:
+                          type: string
+                          description: Human-readable explanation with the actual numbers. The agent should quote this verbatim.
+                        recommendation:
+                          type: string
+                          description: Suggested next action, framed for human review.
+                        metrics:
+                          type: object
+                          properties:
+                            baseline_weeks:
+                              type: integer
+                            recent_weeks:
+                              type: integer
+                            baseline_defect_mean:
+                              type: number
+                            recent_defect_mean:
+                              type: number
+                            baseline_ontime_mean:
+                              type: number
+                            recent_ontime_mean:
+                              type: number
